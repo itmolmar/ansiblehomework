@@ -1,0 +1,62 @@
+- hosts: all
+  vars:
+    pool_name: lvm_raid
+    volume_name: shared
+    mount_point: /data/speci
+    fs_type: xfs
+    user_postfixes:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+    login_message: Login message changed by Ansible\n
+
+  roles:
+    - name: linux-system-roles.storage
+      storage_pools:
+        - name: "{{pool_name}}"
+          disks:
+            - vdb
+          volumes:
+            - name: "{{volume_name}}"
+              size: "100 MiB"
+              fs_type: "{{fs_type}}"
+  tasks:
+    - name: Create mount directory
+      ansible.builtin.file:
+        path: "{{mount_point}}"
+        state: directory
+        mode: '0755'
+
+    - name: Get UUID of LVM RAID
+      shell: "sudo blkid /dev/mapper/{{pool_name}}-{{volume_name}} -s UUID -o value"
+      register: device_uuid
+
+    - name: Mount LVM RAID
+      ansible.posix.mount:
+        path: "{{mount_point}}"
+        src: "UUID={{device_uuid.stdout}}"
+        fstype: "{{fs_type}}"
+        state: mounted
+    - name: Create users
+      ansible.builtin.user:
+        name: "{{ansible_hostname}}_{{item}}"
+        home: "{{mount_point}}/{{ansible_hostname}}_{{item}}"
+      loop: "{{user_postfixes}}"
+    - name: Change login message
+      ansible.builtin.copy:
+        content: "{{login_message}}" 
+        dest: /etc/motd
+      notify: 
+        - restart ssh
+  handlers: 
+    - name: restart ssh
+      service:
+        name: sshd
+        state: restarted
