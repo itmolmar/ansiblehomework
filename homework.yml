@@ -1,5 +1,7 @@
 - hosts: all
+  become: true
   vars:
+    storage_safe_mode: false
     pool_name: lvm_raid
     volume_name: shared
     mount_point: /data/speci
@@ -18,11 +20,16 @@
     login_message: Login message changed by Ansible\n
 
   roles:
-    - name: linux-system-roles.storage
+    - name: rhel-system-roles.storage
       storage_pools:
         - name: "{{pool_name}}"
+          type: lvm
           disks:
-            - vdb
+            - sda
+            - sdb
+            - sdc
+            - sdd
+          raid_level: raid1
           volumes:
             - name: "{{volume_name}}"
               size: "100 MiB"
